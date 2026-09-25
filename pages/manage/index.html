@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>昵称ID档案馆</title>
+<script src="/api/plugin/page/bridge-sdk.js"></script>
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<div class="app">
+  <aside class="nav" id="nav">
+    <div class="brand"><span class="dot"></span>昵称ID档案馆</div>
+    <a class="nav-item" href="#/overview" data-nav="overview"><i>📊</i>概览</a>
+    <a class="nav-item" href="#/members" data-nav="members"><i>🔍</i>成员检索</a>
+    <a class="nav-item" href="#/links" data-nav="links"><i>🔗</i>身份关联</a>
+    <a class="nav-item" href="#/unlinked" data-nav="unlinked"><i>❓</i>未关联清单</a>
+    <a class="nav-item" href="#/groups" data-nav="groups"><i>👥</i>群与同步</a>
+    <a class="nav-item" href="#/data" data-nav="data"><i>🧹</i>数据管理</a>
+    <a class="nav-item" href="#/settings" data-nav="settings"><i>⚙️</i>设置</a>
+    <div class="nav-foot">v0.1.0</div>
+  </aside>
+  <div class="scrim" id="scrim" hidden></div>
+  <main>
+    <header class="topbar">
+      <button class="btn ghost" id="navToggle" aria-label="切换导航">☰</button>
+      <div class="title" id="viewTitle">概览</div>
+      <span class="pill">平台实例：<b id="platformId">-</b></span>
+      <button class="btn ghost" id="btnReload">↻ 刷新</button>
+    </header>
+
+    <section class="view" data-view="overview" hidden>
+      <div class="card">
+        <h2>概览<span class="spacer"><button class="btn small secondary" id="ovRefresh">刷新</button></span></h2>
+        <div class="stats" id="ovStats"></div>
+        <div class="hint">官方通道拿不到 QQ 号：官方成员需要先通过 OneBot 侧同昵称候选或人工确认，才能建立 QQ号 ↔ openid 关联。</div>
+      </div>
+      <div class="card">
+        <h2>同名多人 / 改名排行</h2>
+        <div id="ovAnalysis"></div>
+      </div>
+    </section>
+
+    <section class="view" data-view="members" hidden>
+      <div class="card">
+        <h2>成员检索</h2>
+        <div class="toolbar">
+          <input type="text" id="mKeyword" placeholder="昵称 / 群名片">
+          <input type="text" id="mQq" placeholder="QQ 号">
+          <input type="text" id="mOpenid" placeholder="openid">
+          <select id="mChannel"><option value="">全部通道</option><option value="official">官方</option><option value="onebot">OneBot</option></select>
+          <select id="mLinked"><option value="">全部</option><option value="1">已关联</option><option value="0">未关联</option></select>
+          <button class="btn" id="mSearch">查询</button>
+        </div>
+        <div class="table-wrap"><table><thead><tr><th>显示名</th><th>昵称</th><th>QQ号</th><th>openid</th><th>平台</th><th>群</th><th>通道</th><th>来源</th><th>最近出现</th><th>发言</th><th>操作</th></tr></thead><tbody id="mBody"></tbody></table></div>
+        <div class="pager" id="mPager"></div>
+      </div>
+    </section>
+
+    <section class="view" data-view="links" hidden>
+      <div class="card">
+        <h2>身份关联<span class="spacer"><button class="btn small" id="btnManualLink">手工新增关联</button></span></h2>
+        <div class="toolbar">
+          <select id="lStatus"><option value="">全部状态</option><option value="confirmed">已确认</option><option value="candidate">候选</option><option value="rejected">已驳回</option></select>
+          <button class="btn small secondary" id="lRefresh">刷新</button>
+        </div>
+        <div class="table-wrap"><table><thead><tr><th>QQ号</th><th>openid</th><th>平台实例</th><th>状态</th><th>来源</th><th>备注</th><th>更新时间</th><th>操作</th></tr></thead><tbody id="lBody"></tbody></table></div>
+        <div class="pager" id="lPager"></div>
+      </div>
+    </section>
+
+    <section class="view" data-view="unlinked" hidden>
+      <div class="card">
+        <h2>未关联清单</h2>
+        <div class="hint">官方侧已建档、但还没有 QQ 号的成员（最需要处理的一批）。</div>
+        <div class="table-wrap"><table><thead><tr><th>昵称</th><th>openid</th><th>群</th><th>最近出现</th><th>发言</th><th>操作</th></tr></thead><tbody id="uBody"></tbody></table></div>
+        <div class="pager" id="uPager"></div>
+      </div>
+    </section>
+
+    <section class="view" data-view="groups" hidden>
+      <div class="card">
+        <h2>群与覆盖度</h2>
+        <div class="table-wrap"><table><thead><tr><th>平台实例</th><th>群</th><th>通道</th><th>已建档</th><th>已同步</th><th>最近同步</th><th>操作</th></tr></thead><tbody id="gBody"></tbody></table></div>
+      </div>
+      <div class="card">
+        <h2>群映射（官方群 ↔ OneBot 群）</h2>
+        <div class="hint">官方群的 ID 是 group_openid、OneBot 群是 QQ 群号，同一个真实群两边 ID 不同，必须人工配对后才能做“同群同昵称”候选。</div>
+        <div class="toolbar">
+          <input type="text" id="pOffPid" placeholder="官方平台实例">
+          <input type="text" id="pOffGid" placeholder="官方群 ID">
+          <input type="text" id="pOnePid" placeholder="OneBot 平台实例">
+          <input type="text" id="pOneGid" placeholder="OneBot 群号">
+          <button class="btn" id="pAdd">添加配对</button>
+        </div>
+        <div class="table-wrap"><table><thead><tr><th>官方</th><th>OneBot</th><th>创建时间</th><th>操作</th></tr></thead><tbody id="pBody"></tbody></table></div>
+      </div>
+    </section>
+
+    <section class="view" data-view="data" hidden>
+      <div class="card">
+        <h2>导出</h2>
+        <div class="toolbar">
+          <button class="btn" id="btnExportCsv">导出 CSV</button>
+          <button class="btn secondary" id="btnExportJson">导出 JSON</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>导入（JSON）</h2>
+        <div class="toolbar">
+          <input type="file" id="importFile" accept="application/json,.json">
+          <button class="btn secondary" id="btnImport">导入</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>删除数据</h2>
+        <div class="hint">删除“某个群”不会动到平台级关联；删除“某成员”会同时清掉他的 QQ 号关联。</div>
+        <div class="toolbar">
+          <input type="text" id="dgPid" placeholder="平台实例">
+          <input type="text" id="dgGid" placeholder="群 ID">
+          <button class="btn danger" id="btnPurgeGroup">删除该群成员</button>
+        </div>
+        <div class="toolbar">
+          <input type="text" id="dmPid" placeholder="平台实例">
+          <input type="text" id="dmUid" placeholder="用户 ID / openid">
+          <button class="btn danger" id="btnPurgeMember">删除该成员</button>
+        </div>
+        <div class="toolbar">
+          <button class="btn danger" id="btnPurgeAll">清空全部数据</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="view" data-view="settings" hidden>
+      <div class="card">
+        <h2>设置<span class="spacer"><button class="btn" id="btnSaveSettings">保存设置</button></span></h2>
+        <div id="settingsBox"></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="toasts" id="toasts"></div>
+<aside class="drawer" id="drawer" hidden><h3 id="drawerTitle">成员详情</h3><div id="drawerBody"></div>
+  <div class="modal-actions"><button class="btn ghost" id="drawerClose">关闭</button></div>
+</aside>
+<div class="modal" id="modal" hidden><div class="modal-box" id="modalBox"></div></div>
+<script src="./app.js"></script>
+</body>
+</html>

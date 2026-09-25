@@ -1,0 +1,15 @@
+name: astrbot_plugin_nickname_registry
+display_name: 昵称ID档案馆
+short_desc: 记录群成员昵称与 ID 关系，打通 QQ号 ↔ 官方 openid
+desc: |
+  被动记录群消息发送者的昵称/群名片与 ID，OneBot 侧可全量同步群成员；
+  把 QQ号 与 QQ 官方 openid 在“人”这一层关联起来，支持双向查询、
+  改名历史、同名多人分析、CSV/JSON 导出。只存元数据，不存聊天内容。
+version: 0.1.0
+author: td1336065617
+repo: https://github.com/td1336065617/astrbot_plugin_nickname_registry
+astrbot_version: ">=4.16,<5"
+support_platforms:
+  - qq_official
+  - qq_official_webhook
+  - aiocqhttp

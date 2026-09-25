@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+data/
+.pytest_cache/
+.ruff_cache/
+
+# 开发设计过程文档（本地保留，不随仓库发布）
+docs/昵称ID档案馆-*.md
