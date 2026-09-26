@@ -16,7 +16,7 @@
     { key: 'flush_batch', label: '批量落库条数阈值', type: 'number', min: 10, max: 5000, step: 10 },
     { key: 'queue_max', label: '待写队列上限', type: 'number', min: 100, max: 100000, step: 100 },
     { key: 'history_keep', label: '每人每群历史保留条数', type: 'number', min: 1, max: 500, step: 1 },
-    { key: 'retention_days', label: '数据保留天数（0 = 永久）', type: 'number', min: 0, max: 3650, step: 1 },
+    { key: 'retention_days', label: '改名历史保留天数（0 = 永久）', type: 'number', min: 0, max: 3650, step: 1, desc: '只影响改名历史；成员记录与身份关联不会被删除' },
     { key: 'sync_interval', label: '定时同步周期（秒，0 = 关闭）', type: 'number', min: 0, max: 86400, step: 60 },
     { key: 'sync_timeout', label: '同步超时（秒）', type: 'number', min: 3, max: 120, step: 1 },
     { key: 'extra_admins', label: '附加管理员（逗号分隔）', type: 'text' }

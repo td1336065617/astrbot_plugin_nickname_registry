@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from typing import Any, Dict
 
 from astrbot.api import logger
@@ -9,6 +10,7 @@ from astrbot.api.event import AstrMessageEvent, filter
 from astrbot.api.star import Context, Star
 
 from .src.collector import Collector
+from .src.utils import should_run_maintenance
 from .src.commands import CommandHandler
 from .src.exporter import Exporter
 from .src.identity import IdentityService
@@ -92,6 +94,41 @@ class NicknameRegistry(Star):
                     await self.collector.flush()
                 except Exception as exc:  # noqa: BLE001
                     logger.warning("昵称ID档案馆 定时落库异常：%s", exc)
+            await self._maybe_run_maintenance()
+
+    async def _maybe_run_maintenance(self) -> None:
+        """每天最多一次的保留策略维护（对齐 qqgm _task_maintenance 的日粒度，BUG-036）。"""
+        if self.store is None:
+            return
+        now = time.time()
+        today = time.strftime("%Y%m%d")
+        if not should_run_maintenance(
+            today,
+            now,
+            getattr(self, "_last_prune_day", ""),
+            getattr(self, "_last_prune_attempt", 0.0),
+        ):
+            return
+        self._last_prune_attempt = now           # 先记尝试时间：失败也会退避 10 分钟
+        try:
+            settings = await self.get_settings()
+            keep = int(settings.get("history_keep") or 0)
+            days = int(settings.get("retention_days") or 0)
+            started = time.time()
+            removed = await self.store.prune_history(keep) if keep > 0 else 0
+            if days > 0:
+                removed += await self.store.prune_history_by_age(days)
+            self._last_prune_day = today         # 成功才写日标记
+            if removed:
+                logger.info(
+                    "昵称ID档案馆 历史维护：删除 %d 行（keep=%s days=%s 用时 %.1fs）",
+                    removed,
+                    keep,
+                    days,
+                    time.time() - started,
+                )
+        except Exception as exc:  # noqa: BLE001 - 维护失败不影响采集
+            logger.warning("昵称ID档案馆 历史维护失败：%s", exc)
 
     # ------------------------------------------------------------------
     # 采集：所有群消息

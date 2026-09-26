@@ -402,19 +402,31 @@ class NicknameStore:
         finally:
             conn.close()
 
-    async def prune_history(self, keep: int) -> int:
-        async with self._write_lock:
-            return await asyncio.to_thread(self._prune_history_sync, int(keep))
-
-    def _prune_history_sync(self, keep: int) -> int:
+    async def prune_history(self, keep: int, *, batch: int = 2000) -> int:
+        """每人每群只保留最新 keep 条；分批执行，避免长时间持写锁（BUG-036）。"""
+        keep = int(keep or 0)
+        batch = max(1, int(batch or 2000))
         if keep <= 0:
             return 0
+        total = 0
+        while True:
+            async with self._write_lock:
+                removed = await asyncio.to_thread(self._prune_history_batch_sync, keep, batch)
+            if removed <= 0:
+                break
+            total += removed
+            await asyncio.sleep(0)          # 让出事件循环，热路径可以插进来
+            if removed < batch:
+                break
+        return total
+
+    def _prune_history_batch_sync(self, keep: int, batch: int) -> int:
         conn = self._connect()
         try:
             with conn:
                 cur = conn.execute(
                     """
-                    DELETE FROM nickname_history WHERE seq NOT IN (
+                    DELETE FROM nickname_history WHERE seq IN (
                       SELECT seq FROM (
                         SELECT seq,
                                ROW_NUMBER() OVER (
@@ -422,10 +434,46 @@ class NicknameStore:
                                  ORDER BY changed_at DESC, seq DESC
                                ) AS rn
                         FROM nickname_history
-                      ) WHERE rn <= ?
+                      ) WHERE rn > ?
+                      LIMIT ?
                     )
                     """,
-                    (keep,),
+                    (keep, batch),
+                )
+                return int(cur.rowcount or 0)
+        finally:
+            conn.close()
+
+    async def prune_history_by_age(self, days: int, *, batch: int = 2000) -> int:
+        """删除超过 days 天的改名历史（0 = 不删）；同样分批短事务。"""
+        days = int(days or 0)
+        batch = max(1, int(batch or 2000))
+        if days <= 0:
+            return 0
+        cutoff = time.time() - days * 86400
+        total = 0
+        while True:
+            async with self._write_lock:
+                removed = await asyncio.to_thread(self._prune_history_age_batch_sync, cutoff, batch)
+            if removed <= 0:
+                break
+            total += removed
+            await asyncio.sleep(0)
+            if removed < batch:
+                break
+        return total
+
+    def _prune_history_age_batch_sync(self, cutoff: float, batch: int) -> int:
+        conn = self._connect()
+        try:
+            with conn:
+                cur = conn.execute(
+                    """
+                    DELETE FROM nickname_history WHERE seq IN (
+                      SELECT seq FROM nickname_history WHERE changed_at < ? LIMIT ?
+                    )
+                    """,
+                    (float(cutoff), batch),
                 )
                 return int(cur.rowcount or 0)
         finally:

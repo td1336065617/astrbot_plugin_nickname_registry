@@ -43,6 +43,7 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
     "history_keep": 20,
     "retention_days": 0,            # 0 = 永久保留
     "sync_interval": 0,             # 0 = 关闭定时同步（秒）
+    "sync_timeout": 20.0,           # 与 src/sync.py 的 DEFAULT_TIMEOUT 对齐（BUG-012）
     "extra_admins": [],
 }
 

@@ -55,3 +55,16 @@ def safe_json_dumps(value: Any) -> str:
         return json.dumps(value, ensure_ascii=False, sort_keys=True)
     except (TypeError, ValueError):
         return "{}"
+
+
+def should_run_maintenance(
+    now_day: str,
+    now_ts: float,
+    last_day: str,
+    last_attempt: float,
+    min_interval: float = 600.0,
+) -> bool:
+    """今天还没跑过、且距上次尝试超过 min_interval 才允许跑（失败也要退避）。"""
+    if not now_day or now_day == last_day:
+        return False
+    return (float(now_ts) - float(last_attempt or 0.0)) >= float(min_interval)
