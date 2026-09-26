@@ -52,15 +52,14 @@
 - **不存聊天内容**；仅后台管理员可见；支持按群 / 按成员 / 全量删除。
 - 数据库位置：`data/plugin_data/astrbot_plugin_nickname_registry/nickname.db`（SQLite）。
 
-## 文档
-
-- `docs/昵称ID档案馆-需求文档.md`
-- `docs/昵称ID档案馆-设计文档.md`
-- `docs/昵称ID档案馆-实现文档.md`
-
 ## 开发
 
 ```bash
 python -m pytest tests -q
 ruff check --select F,E9 main.py src/ tests/
 ```
+
+## 相关文档
+
+- [更新日志](CHANGELOG.md)：每个版本的新增与修复
+
