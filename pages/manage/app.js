@@ -125,6 +125,29 @@
   function stat(num, lbl) {
     return '<div class="stat"><div class="num">' + esc(num) + '</div><div class="lbl">' + esc(lbl) + '</div></div>';
   }
+  function analysisTable(rows, columns, emptyText) {
+    if (!rows.length) return '<div class="muted">' + esc(emptyText) + '</div>';
+    var head = '<tr>' + columns.map(function (c) { return '<th>' + esc(c[0]) + '</th>'; }).join('') + '</tr>';
+    var body = rows.map(function (r) {
+      return '<tr>' + columns.map(function (c) { return '<td>' + esc(c[1](r)) + '</td>'; }).join('') + '</tr>';
+    }).join('');
+    return '<table class="table"><thead>' + head + '</thead><tbody>' + body + '</tbody></table>';
+  }
+  function renderAnalysis(dups, renames) {
+    var dupTable = analysisTable(dups, [
+      ['昵称', function (r) { return r.nickname || r.name || '-'; }],
+      ['人数', function (r) { return r.count || r.users || 0; }],
+      ['涉及群', function (r) { return r.groups || 0; }]
+    ], '暂无同名多人（同一昵称被多人使用）');
+    var renameTable = analysisTable(renames, [
+      ['成员', function (r) { return r.display || r.nickname || r.user_id || '-'; }],
+      ['改名次数', function (r) { return r.changes || r.count || 0; }],
+      ['最近改名', function (r) { return fmtTs(r.last_change) || '-'; }]
+    ], '暂无改名记录（采集到昵称/名片变化后会出现在这里）');
+    $('#ovAnalysis').innerHTML =
+      '<div class="muted" style="margin:4px 0">同名多人</div>' + dupTable +
+      '<div class="muted" style="margin:10px 0 4px">改名排行</div>' + renameTable;
+  }
   async function loadOverview() {
     try {
       var data = await apiGet('summary');
@@ -136,10 +159,8 @@
         stat(s.members || 0, '成员记录') + stat(s.distinct_users || 0, '不同用户') +
         stat(s.groups || 0, '群') + stat(s.confirmed || 0, '已确认关联') +
         stat(s.candidate || 0, '候选') + stat(data.group_pairs || 0, '群映射');
-      var analysis = await apiGet('groups');
-      var dup = [];
-      try { dup = (await apiGet('members', { size: '1' })).items ? [] : []; } catch (e) { dup = []; }
-      $('#ovAnalysis').innerHTML = '<div class="muted">同名多人 / 改名排行请在“成员检索”里查看；自动候选请在“群与同步”里配置群映射后生成。</div>';
+      var analysis = await apiGet('analysis');
+      renderAnalysis((analysis && analysis.duplicate_names) || [], (analysis && analysis.rename_rank) || []);
     } catch (e) { toast('读取概览失败：' + e.message, 'err'); }
   }
 
@@ -160,13 +181,15 @@
       '<td><button class="btn small secondary" data-detail="' + esc(r.platform_id + '|' + r.group_id + '|' + r.user_id) + '">详情</button></td>' +
       '</tr>';
   }
-  function pager(host, page, size, total, onGo) {
+  function pager(host, page, size, total, onGo, idPrefix) {
     var pages = Math.max(1, Math.ceil(total / size));
+    var prevId = (idPrefix || 'pg') + 'Prev';
+    var nextId = (idPrefix || 'pg') + 'Next';
     host.innerHTML = '共 ' + total + ' 条 · 第 ' + page + ' / ' + pages + ' 页' +
-      '<button class="btn small ghost" id="pgPrev"' + (page <= 1 ? ' disabled' : '') + '>上一页</button>' +
-      '<button class="btn small ghost" id="pgNext"' + (page >= pages ? ' disabled' : '') + '>下一页</button>';
-    var p = host.querySelector('#pgPrev'); if (p) p.onclick = function () { onGo(page - 1); };
-    var n = host.querySelector('#pgNext'); if (n) n.onclick = function () { onGo(page + 1); };
+      '<button class="btn small ghost" id="' + prevId + '"' + (page <= 1 ? ' disabled' : '') + '>上一页</button>' +
+      '<button class="btn small ghost" id="' + nextId + '"' + (page >= pages ? ' disabled' : '') + '>下一页</button>';
+    var p = host.querySelector('#' + prevId); if (p) p.onclick = function () { onGo(page - 1); };
+    var n = host.querySelector('#' + nextId); if (n) n.onclick = function () { onGo(page + 1); };
   }
   async function loadMembers(page) {
     state.members.page = page || state.members.page;
@@ -182,7 +205,7 @@
       $('#mBody').innerHTML = state.members.items.length
         ? state.members.items.map(memberRow).join('')
         : '<tr><td colspan="11" class="muted">暂无数据</td></tr>';
-      pager($('#mPager'), state.members.page, state.members.size, state.members.total, loadMembers);
+      pager($('#mPager'), state.members.page, state.members.size, state.members.total, loadMembers, 'm');
     } catch (e) { toast('查询失败：' + e.message, 'err'); }
   }
   async function showDetail(key) {
@@ -232,7 +255,7 @@
               '<button class="btn small danger" data-unbind="' + esc(l.platform_id + '|' + l.openid) + '">解绑</button></td></tr>';
           }).join('')
         : '<tr><td colspan="8" class="muted">暂无关联记录</td></tr>';
-      pager($('#lPager'), state.links.page, state.links.size, state.links.total, loadLinks);
+      pager($('#lPager'), state.links.page, state.links.size, state.links.total, loadLinks, 'l');
     } catch (e) { toast('读取关联失败：' + e.message, 'err'); }
   }
 
@@ -251,7 +274,7 @@
               '<td><button class="btn small secondary" data-linkqq="' + esc(m.platform_id + '|' + m.user_id) + '">关联 QQ 号</button></td></tr>';
           }).join('')
         : '<tr><td colspan="6" class="muted">暂无未关联成员</td></tr>';
-      pager($('#uPager'), state.unlinked.page, state.unlinked.size, state.unlinked.total, loadUnlinked);
+      pager($('#uPager'), state.unlinked.page, state.unlinked.size, state.unlinked.total, loadUnlinked, 'u');
     } catch (e) { toast('读取未关联清单失败：' + e.message, 'err'); }
   }
 
@@ -461,7 +484,10 @@
       catch (e) { toast('文件不是合法 JSON', 'err'); return; }
       try {
         var r = await apiPost('import', { payload: payload });
-        toast('导入完成：' + JSON.stringify(r && r.applied), 'ok');
+        var applied = (r && r.applied) || {};
+        var skipped = applied.skipped || 0;
+        toast('导入完成：成员 ' + (applied.members || 0) + ' / 关联 ' + (applied.links || 0) +
+          ' / 历史 ' + (applied.history || 0) + (skipped ? ('（跳过 ' + skipped + ' 条 QQ 非法或为空的记录）') : ''), 'ok');
       } catch (e) { toast('导入失败：' + e.message, 'err'); }
     };
     $('#btnPurgeGroup').onclick = function () {

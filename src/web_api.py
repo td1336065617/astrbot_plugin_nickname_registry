@@ -10,6 +10,7 @@ from .models import LINK_STATUSES, MAX_LIST_PAGE, PLUGIN_NAME
 
 ROUTES = (
     ("summary", "GET", "_summary"),
+    ("analysis", "GET", "_analysis"),
     ("members", "GET", "_members"),
     ("member", "GET", "_member"),
     ("links", "GET", "_links"),
@@ -80,6 +81,11 @@ class WebApi:
         logger.info("昵称ID档案馆 已注册 %d 条后台接口", len(ROUTES))
 
     # ------------------------------------------------------------------
+    async def _analysis(self):
+        """同名多人 / 改名排行（概览页用；只读）。"""
+        data = await self.plugin.queries.analysis()
+        return json_response({"status": "success", "data": data})
+
     async def _summary(self):
         return json_response({"status": "success", "data": await self.plugin.queries.summary()})
 

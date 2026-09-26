@@ -6,7 +6,7 @@ import io
 import json
 from typing import Any, Dict, List
 
-from .models import LINK_CONFIRMED, MAX_LIST_PAGE
+from .models import LINK_CANDIDATE, LINK_CONFIRMED, LINK_STATUSES, MAX_LIST_PAGE
 from .utils import display_qq, to_iso
 
 CSV_HEADER = [
@@ -177,13 +177,21 @@ class Exporter:
                 raise ValueError(f"history 第 {index + 1} 项不是对象")
             history_rows.append(item)
 
-        applied = {"members": 0, "links": 0, "history": 0}
+        applied = {"members": 0, "links": 0, "history": 0, "skipped": 0}
         if member_rows:
             applied["members"] = await store.upsert_members(member_rows)
         for item in link_rows:
             pid = str(item.get("platform_id"))
             oid = str(item.get("openid"))
-            incoming_status = str(item.get("status") or "candidate")
+            incoming_status = str(item.get("status") or LINK_CANDIDATE)
+            if incoming_status not in LINK_STATUSES:
+                # 非白名单状态降级为候选：避免界面把脏数据当成「已确认/已驳回」
+                incoming_status = LINK_CANDIDATE
+            qq_text = str(item.get("qq") or "").strip()
+            if not qq_text.isdigit():
+                # 空 / 非数字 QQ 不入库（原样入库会让关联表出现无法检索的脏行）
+                applied["skipped"] += 1
+                continue
             existing = await store.get_link(pid, oid)
             if existing is not None:
                 existing_status = str(existing.get("status") or "")
@@ -196,7 +204,7 @@ class Exporter:
                     except (TypeError, ValueError):
                         pass
             await store.upsert_link(
-                str(item.get("qq") or ""),
+                qq_text,
                 pid,
                 oid,
                 status=incoming_status,

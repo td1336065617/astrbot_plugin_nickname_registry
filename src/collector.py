@@ -213,8 +213,6 @@ class Collector:
             delta = int(self._delta.get(key, 0))
             payload = {k: v for k, v in row.items() if not k.startswith("_")}
             payload["msg_count"] = delta
-            if delta <= 0 and force is False and payload.get("source") == SOURCE_SYNCED:
-                pass
             rows.append(payload)
             deltas[key] = delta
         history = list(self._history)

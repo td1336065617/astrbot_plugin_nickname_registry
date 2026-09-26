@@ -5,7 +5,7 @@ desc: |
   被动记录群消息发送者的昵称/群名片与 ID，OneBot 侧可全量同步群成员；
   把 QQ号 与 QQ 官方 openid 在“人”这一层关联起来，支持双向查询、
   改名历史、同名多人分析、CSV/JSON 导出。只存元数据，不存聊天内容。
-version: 0.2.0
+version: 0.2.1
 author: td1336065617
 repo: https://github.com/td1336065617/astrbot_plugin_nickname_registry
 astrbot_version: ">=4.16,<5"

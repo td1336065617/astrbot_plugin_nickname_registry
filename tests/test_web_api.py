@@ -235,3 +235,20 @@ def test_export_import_purge_settings(tmp_path):
         assert out["data"]["capture_enabled"] is False
         await store.close()
     _run(scenario())
+
+
+def test_analysis_route_and_payload(tmp_path):
+    """BUG-013：概览页要用的 analysis 路由必须注册且返回两张表。"""
+
+    async def scenario():
+        store = await _setup(tmp_path)
+        plugin = FakePlugin(store)
+        web_mod.WebApi(plugin).register()
+        prefix = web_mod.PLUGIN_NAME + "/"
+        names = {(r[0].split(prefix, 1)[1], r[1]) for r in plugin.routes}
+        assert ("analysis", "GET") in names
+        payload = await web_mod.WebApi(plugin)._analysis()
+        assert set(payload["data"]) == {"duplicate_names", "rename_rank"}
+        await store.close()
+
+    _run(scenario())

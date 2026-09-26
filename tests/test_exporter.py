@@ -167,3 +167,33 @@ def test_import_rejects_invalid_payload(tmp_path):
         assert (await store.stats())["members"] == 0
         await store.close()
     _run(scenario())
+
+
+def test_import_downgrades_unknown_status_and_skips_bad_qq(tmp_path):
+    """BUG-028：非白名单状态降级为候选；空/非数字 QQ 直接跳过并计数。"""
+
+    async def scenario():
+        store = NicknameStore(tmp_path / "n.db")
+        await store.initialize()
+        exporter = Exporter(FakePlugin(store))
+        applied = await exporter.import_json(
+            {
+                "links": [
+                    {"platform_id": "p1", "openid": "o1", "qq": "12345", "status": "weird"},
+                    {"platform_id": "p1", "openid": "o2", "qq": "not-a-number"},
+                    {"platform_id": "p1", "openid": "o3"},
+                    {"platform_id": "p1", "openid": "o4", "qq": "67890", "status": "confirmed"},
+                ]
+            }
+        )
+        assert applied["links"] == 2
+        assert applied["skipped"] == 2
+        downgraded = await store.get_link("p1", "o1")
+        assert downgraded["status"] == "candidate"
+        assert await store.get_link("p1", "o2") is None
+        assert await store.get_link("p1", "o3") is None
+        confirmed = await store.get_link("p1", "o4")
+        assert confirmed["status"] == "confirmed"
+        await store.close()
+
+    _run(scenario())
