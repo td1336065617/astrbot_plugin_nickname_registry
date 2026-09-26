@@ -17,8 +17,8 @@ from .src.models import DEFAULT_SETTINGS
 from .src.queries import Queries
 from .src.store import NicknameStore, default_store_path
 from .src.sync import MemberSync
-from .src.web_api import WebApi
 from .src.utils import should_run_maintenance
+from .src.web_api import WebApi
 
 DEFAULT_FLUSH_INTERVAL = 5.0
 
