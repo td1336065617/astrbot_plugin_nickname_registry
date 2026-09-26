@@ -43,11 +43,13 @@ def display_qq(row: dict) -> str:
     return ""
 
 
+# keep-alive: 预留 API（当前无调用方，接线前请保留；扫描见 tools/deadcode_scan.py）——truncate
 def truncate(value: Any, limit: int = 200) -> str:
     text = str(value or "")
     return text if len(text) <= limit else text[: limit - 1] + "…"
 
 
+# keep-alive: 预留 API（当前无调用方，接线前请保留；扫描见 tools/deadcode_scan.py）——safe_json_dumps
 def safe_json_dumps(value: Any) -> str:
     try:
         return json.dumps(value, ensure_ascii=False, sort_keys=True)
