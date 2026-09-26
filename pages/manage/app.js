@@ -136,7 +136,7 @@
   function renderAnalysis(dups, renames) {
     var dupTable = analysisTable(dups, [
       ['昵称', function (r) { return r.nickname || r.name || '-'; }],
-      ['人数', function (r) { return r.count || r.users || 0; }],
+      ['人数', function (r) { return r.count || r.c || 0; }],
       ['涉及群', function (r) { return r.groups || 0; }]
     ], '暂无同名多人（同一昵称被多人使用）');
     var renameTable = analysisTable(renames, [

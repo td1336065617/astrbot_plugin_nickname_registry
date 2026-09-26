@@ -936,10 +936,13 @@ class NicknameStore:
         try:
             rows = conn.execute(
                 """
-                SELECT nickname, COUNT(DISTINCT user_id) AS c,
+                SELECT nickname,
+                       COUNT(DISTINCT user_id) AS c,
+                       COUNT(DISTINCT user_id) AS count,
+                       COUNT(DISTINCT group_id) AS groups,
                        GROUP_CONCAT(DISTINCT user_id) AS users
                 FROM member WHERE nickname <> ''
-                GROUP BY nickname HAVING c > 1
+                GROUP BY nickname HAVING COUNT(DISTINCT user_id) > 1
                 ORDER BY c DESC, nickname LIMIT ?
                 """,
                 (limit,),
