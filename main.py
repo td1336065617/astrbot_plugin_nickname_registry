@@ -10,7 +10,6 @@ from astrbot.api.event import AstrMessageEvent, filter
 from astrbot.api.star import Context, Star
 
 from .src.collector import Collector
-from .src.utils import should_run_maintenance
 from .src.commands import CommandHandler
 from .src.exporter import Exporter
 from .src.identity import IdentityService
@@ -19,6 +18,7 @@ from .src.queries import Queries
 from .src.store import NicknameStore, default_store_path
 from .src.sync import MemberSync
 from .src.web_api import WebApi
+from .src.utils import should_run_maintenance
 
 DEFAULT_FLUSH_INTERVAL = 5.0
 
