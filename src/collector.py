@@ -15,7 +15,6 @@ except Exception:  # noqa: BLE001
 
 from .models import (
     SOURCE_OBSERVED,
-    SOURCE_SYNCED,
 )
 from .utils import now_ts
 
