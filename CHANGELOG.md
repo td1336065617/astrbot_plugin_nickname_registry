@@ -7,6 +7,22 @@
 
 ---
 
+## [0.2.0] - 2026-09-26
+
+> ✨ 后台改为「群名优先」：官方渠道也能看到群名，不再满屏 group_openid。
+
+### ✨ 新增
+- **群名缓存与解析**（`src/group_names.py` + `group_meta` 表）：
+  - 被动捕获：OneBot 事件自带 `group_name` 时自动入库（进程内缓存，避免每条消息写库）；
+  - 主动拉取：OneBot 走 `get_group_info`；**官方渠道走开放接口** `GET /v2/groups/{group_openid}/info`，复用 botpy 已持有的 access_token（`Route` + `inst.client.api._http`），无需另配 appid/secret；
+  - 后台「群与同步」新增**「刷新群名」**按钮，只给还没有名字的群补一次（默认最多 50 个）。
+- 后台展示统一为「**群名 + ID 简写**」（鼠标悬停看完整 ID）：成员检索、未关联清单、群与覆盖度、成员详情抽屉。
+
+### ⚙️ 变更
+- 新增接口 `POST /astrbot_plugin_nickname_registry/groups/refresh`。
+
+---
+
 ## [0.1.0] - 2026-09-25
 
 > 🎉 首个版本：记录昵称与 ID 关系，打通 QQ号 ↔ 官方 openid。

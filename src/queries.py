@@ -69,8 +69,12 @@ class Queries:
             page=page,
             size=size,
         )
+        names = await store.group_names()
         for row in rows:
             row["qq_display"] = display_qq(row)
+            row["group_name"] = names.get(
+                (str(row.get("platform_id") or ""), str(row.get("group_id") or "")), ""
+            )
         return {"items": rows, "total": total, "page": int(page), "size": size}
 
     async def member_detail(
@@ -82,13 +86,23 @@ class Queries:
         member = await store.get_member(platform_id, group_id, user_id)
         link = await store.get_link(platform_id, user_id)
         history = await store.list_history(platform_id, group_id, user_id, limit=100)
-        return {"member": member, "link": link, "history": history}
+        return {
+            "member": member,
+            "link": link,
+            "history": history,
+            "group_name": await store.get_group_name(platform_id, group_id),
+        }
 
     async def unlinked(self, page: int = 1, size: int = 50) -> Dict[str, Any]:
         store = self.store
         if store is None:
             return {"items": [], "total": 0}
         rows, total = await store.unlinked_members(page=page, size=size)
+        names = await store.group_names()
+        for row in rows:
+            row["group_name"] = names.get(
+                (str(row.get("platform_id") or ""), str(row.get("group_id") or "")), ""
+            )
         return {"items": rows, "total": total, "page": int(page), "size": int(size)}
 
     async def groups(self) -> List[Dict[str, Any]]:
@@ -96,6 +110,7 @@ class Queries:
         if store is None:
             return []
         result = []
+        names = await store.group_names()
         for item in await store.group_overview():
             pid = str(item.get("platform_id") or "")
             channel = channel_of_platform_id(self.plugin, pid)
@@ -104,6 +119,7 @@ class Queries:
                     **item,
                     "channel": channel,
                     "capabilities": capabilities(channel),
+                    "group_name": names.get((pid, str(item.get("group_id") or "")), ""),
                 }
             )
         return result

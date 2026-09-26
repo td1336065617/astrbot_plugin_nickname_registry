@@ -36,6 +36,16 @@
     return text(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
+  function shortId(value) {
+    var text = String(value === null || value === undefined ? '' : value);
+    return text.length > 14 ? text.slice(0, 8) + '...' + text.slice(-4) : text;
+  }
+  function groupCell(name, groupId) {
+    var label = String(name || '').trim();
+    var idText = String(groupId || '');
+    return '<div>' + (label ? esc(label) : '<span class="muted">未获取群名</span>') + '</div>' +
+      '<div class="muted mono" title="' + esc(idText) + '">' + esc(shortId(idText)) + '</div>';
+  }
   function platformLabel(p) {
     var map = { codeforces: 'Codeforces', nowcoder: '牛客', luogu: '洛谷', atcoder: 'AtCoder' };
     return map[p] || text(p);
@@ -142,7 +152,7 @@
       '<td class="mono">' + esc(r.qq_display || '-') + '</td>' +
       '<td class="mono">' + esc(r.user_id) + '</td>' +
       '<td class="mono">' + esc(r.platform_id) + '</td>' +
-      '<td class="mono">' + esc(r.group_id) + '</td>' +
+      '<td>' + groupCell(r.group_name, r.group_id) + '</td>' +
       '<td>' + (r.channel === 'official' ? '<span class="badge info">官方</span>' : (r.channel === 'onebot' ? '<span class="badge warn">OneBot</span>' : '-')) + '</td>' +
       '<td>' + esc(r.source) + '</td>' +
       '<td class="muted">' + esc(fmtTs(r.last_seen)) + '</td>' +
@@ -184,7 +194,8 @@
       var html = '<div class="field"><label>显示名</label><div>' + esc(m.card || m.nickname || '-') + '</div></div>' +
         '<div class="field"><label>昵称 / 群名片</label><div>' + esc(m.nickname || '-') + ' / ' + esc(m.card || '-') + '</div></div>' +
         '<div class="field"><label>openid / QQ号</label><div class="mono">' + esc(m.user_id) + ' / ' + esc(link ? link.qq : '-') + '</div></div>' +
-        '<div class="field"><label>平台 / 群</label><div class="mono">' + esc(m.platform_id) + ' / ' + esc(m.group_id) + '</div></div>' +
+        '<div class="field"><label>平台 / 群</label><div>' + esc(m.platform_id) + ' / ' +
+          (data.group_name ? esc(data.group_name) + ' ' : '') + '<span class="mono">' + esc(m.group_id) + '</span></div></div>' +
         '<div class="field"><label>来源 / 发言数</label><div>' + esc(m.source) + ' / ' + esc(m.msg_count) + '</div></div>' +
         '<div class="field"><label>关联状态</label><div>' + (link ? esc(link.status) + '（' + esc(link.link_source) + '）' : '<span class="badge warn">未关联</span>') + '</div></div>';
       var history = data.history || [];
@@ -235,7 +246,7 @@
       $('#uBody').innerHTML = items.length
         ? items.map(function (m) {
             return '<tr><td>' + esc(m.nickname || '-') + '</td><td class="mono">' + esc(m.user_id) + '</td>' +
-              '<td class="mono">' + esc(m.group_id) + '</td><td class="muted">' + esc(fmtTs(m.last_seen)) + '</td>' +
+              '<td>' + groupCell(m.group_name, m.group_id) + '</td><td class="muted">' + esc(fmtTs(m.last_seen)) + '</td>' +
               '<td>' + esc(m.msg_count) + '</td>' +
               '<td><button class="btn small secondary" data-linkqq="' + esc(m.platform_id + '|' + m.user_id) + '">关联 QQ 号</button></td></tr>';
           }).join('')
@@ -252,7 +263,7 @@
       $('#gBody').innerHTML = state.groups.length
         ? state.groups.map(function (g) {
             var can = g.capabilities && g.capabilities.can_sync_members;
-            return '<tr><td class="mono">' + esc(g.platform_id) + '</td><td class="mono">' + esc(g.group_id) + '</td>' +
+            return '<tr><td class="mono">' + esc(g.platform_id) + '</td><td>' + groupCell(g.group_name, g.group_id) + '</td>' +
               '<td>' + (g.channel === 'onebot' ? 'OneBot' : (g.channel === 'official' ? '官方' : '-')) + '</td>' +
               '<td>' + esc(g.member_count) + '</td><td>' + esc(g.synced_count) + '</td>' +
               '<td class="muted">' + esc(g.last_sync_at ? fmtTs(g.last_sync_at) : '-') + '</td>' +
@@ -394,6 +405,22 @@
         .then(function (r) { toast('同步完成：' + text(r && r.total) + ' 人', 'ok'); loadGroups(); })
         .catch(function (err) { toast('同步失败：' + err.message, 'err'); b.disabled = false; });
     });
+    var refreshNames = $('#gRefreshNames');
+    if (refreshNames) {
+      refreshNames.onclick = async function () {
+        refreshNames.disabled = true;
+        try {
+          var result = await apiPost('groups/refresh', { limit: 50 });
+          toast('群名已更新 ' + text(result && result.updated) + ' 个' +
+            (result && result.failed ? ('，失败 ' + text(result.failed) + ' 个') : '') +
+            (result && result.skipped ? ('，还剩 ' + text(result.skipped) + ' 个未处理') : ''), 'ok');
+          loadGroups();
+        } catch (e) {
+          toast('刷新群名失败：' + e.message, 'err');
+        }
+        refreshNames.disabled = false;
+      };
+    }
     $('#pAdd').onclick = async function () {
       var body = {
         action: 'add',

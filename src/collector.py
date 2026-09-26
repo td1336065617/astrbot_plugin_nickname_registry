@@ -30,6 +30,8 @@ class Collector:
         self._dirty: set[MemberKey] = set()
         self._history: List[Dict[str, Any]] = []
         self._dropped = 0
+        #: 进程内群名缓存，避免每条消息都写库
+        self._group_names: Dict[Tuple[str, str], str] = {}
 
     # ------------------------------------------------------------------
     # 事件入口
@@ -48,6 +50,12 @@ class Collector:
             channel = channel_of_platform_id(self.plugin, platform_id)
         except Exception:  # noqa: BLE001 - 能力探测失败不阻断采集
             channel = ""
+        try:  # 群名捕获失败不影响采集
+            from .group_names import capture_from_event
+
+            await capture_from_event(self.plugin, event, self._group_names)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("群名捕获失败：%s", exc)
         await self.observe(
             platform_id=platform_id,
             group_id=group_id,

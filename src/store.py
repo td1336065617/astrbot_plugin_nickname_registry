@@ -99,6 +99,16 @@ DDL_STATEMENTS: Tuple[str, ...] = (
               onebot_platform_id, onebot_group_id)
     )
     """,
+    """
+    CREATE TABLE IF NOT EXISTS group_meta (
+      platform_id TEXT NOT NULL,
+      group_id    TEXT NOT NULL,
+      name        TEXT NOT NULL DEFAULT '',
+      source      TEXT NOT NULL DEFAULT '',
+      updated_at  REAL NOT NULL,
+      PRIMARY KEY (platform_id, group_id)
+    )
+    """,
 )
 
 _UPSERT_MEMBER_SQL = """
@@ -905,5 +915,87 @@ class NicknameStore:
                 (limit,),
             ).fetchall()
             return [dict(r) for r in rows]
+        finally:
+            conn.close()
+
+    # ---------------- 群名缓存 ----------------
+    async def upsert_group_name(
+        self, platform_id: str, group_id: str, name: str, source: str = ""
+    ) -> None:
+        text = str(name or "").strip()
+        if not text:
+            return
+        async with self._write_lock:
+            await asyncio.to_thread(
+                self._upsert_group_name_sync, str(platform_id), str(group_id), text, str(source)
+            )
+
+    def _upsert_group_name_sync(self, platform_id: str, group_id: str, name: str, source: str) -> None:
+        conn = self._connect()
+        try:
+            with conn:
+                conn.execute(
+                    """
+                    INSERT INTO group_meta(platform_id, group_id, name, source, updated_at)
+                    VALUES (?,?,?,?,?)
+                    ON CONFLICT(platform_id, group_id)
+                    DO UPDATE SET name=excluded.name,
+                                  source=excluded.source,
+                                  updated_at=excluded.updated_at
+                    """,
+                    (platform_id, group_id, name, source, time.time()),
+                )
+        finally:
+            conn.close()
+
+    async def get_group_name(self, platform_id: str, group_id: str) -> str:
+        return await asyncio.to_thread(
+            self._get_group_name_sync, str(platform_id), str(group_id)
+        )
+
+    def _get_group_name_sync(self, platform_id: str, group_id: str) -> str:
+        conn = self._connect()
+        try:
+            row = conn.execute(
+                "SELECT name FROM group_meta WHERE platform_id=? AND group_id=?",
+                (platform_id, group_id),
+            ).fetchone()
+            return str(row["name"]) if row is not None else ""
+        finally:
+            conn.close()
+
+    async def group_names(self) -> Dict[Tuple[str, str], str]:
+        return await asyncio.to_thread(self._group_names_sync)
+
+    def _group_names_sync(self) -> Dict[Tuple[str, str], str]:
+        conn = self._connect()
+        try:
+            rows = conn.execute(
+                "SELECT platform_id, group_id, name FROM group_meta WHERE name <> ''"
+            ).fetchall()
+            return {
+                (str(r["platform_id"]), str(r["group_id"])): str(r["name"]) for r in rows
+            }
+        finally:
+            conn.close()
+
+    async def groups_without_name(self) -> List[Tuple[str, str]]:
+        return await asyncio.to_thread(self._groups_without_name_sync)
+
+    def _groups_without_name_sync(self) -> List[Tuple[str, str]]:
+        conn = self._connect()
+        try:
+            rows = conn.execute(
+                """
+                SELECT m.platform_id AS platform_id, m.group_id AS group_id
+                FROM member m
+                LEFT JOIN group_meta g
+                       ON g.platform_id = m.platform_id AND g.group_id = m.group_id
+                WHERE IFNULL(g.name, '') = ''
+                GROUP BY m.platform_id, m.group_id
+                ORDER BY MAX(m.last_seen) DESC
+                """
+            ).fetchall()
+            return [(str(r["platform_id"]), str(r["group_id"])) for r in rows]
         finally:
             conn.close()

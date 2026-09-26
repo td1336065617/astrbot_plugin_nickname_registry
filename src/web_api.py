@@ -21,6 +21,7 @@ ROUTES = (
     ("group-pairs", "POST", "_pairs_write"),
     ("unlinked", "GET", "_unlinked"),
     ("groups", "GET", "_groups"),
+    ("groups/refresh", "POST", "_groups_refresh"),
     ("sync", "POST", "_sync"),
     ("export", "GET", "_export"),
     ("import", "POST", "_import"),
@@ -223,6 +224,19 @@ class WebApi:
         return json_response(
             {"status": "success", "data": {"items": await self.plugin.queries.groups()}}
         )
+
+    async def _groups_refresh(self):
+        """批量补群名：官方走开放接口，OneBot 走 get_group_info。"""
+        from .group_names import refresh_group_names
+
+        payload = await self._body() or {}
+        try:
+            limit = int(payload.get("limit") or 50)
+        except (TypeError, ValueError):
+            limit = 50
+        limit = max(1, min(200, limit))
+        data = await refresh_group_names(self.plugin, limit=limit)
+        return json_response({"status": "success", "data": data})
 
     async def _sync(self):
         payload = await self._body()
